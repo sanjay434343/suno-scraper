@@ -1,7 +1,7 @@
 const https = require("https");
 
 function generateDeviceId() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
@@ -10,6 +10,8 @@ function generateDeviceId() {
 
 function incrementPlayCount(songId) {
   return new Promise((resolve, reject) => {
+
+    const body = JSON.stringify({ spec: {} }); // 🔥 REQUIRED BODY
 
     const options = {
       hostname: "studio-api.prod.suno.com",
@@ -22,21 +24,23 @@ function incrementPlayCount(songId) {
           token: "eyJ0aW1lc3RhbXAiOiR7dGltZXN0YW1wfX0="
         }),
         "device-id": generateDeviceId(),
-        "x-user-id": "anonymous",  // 🔥 REQUIRED
+        "x-user-id": "anonymous", // 🔥 REQUIRED HEADER
         "origin": "https://suno.com",
         "referer": "https://suno.com/",
         "user-agent": "Mozilla/5.0",
-        "content-length": "0"
+        "content-type": "application/json",
+        "content-length": Buffer.byteLength(body)
       }
     };
 
-    const req = https.request(options, res => {
+    const req = https.request(options, (res) => {
       let data = "";
-      res.on("data", chunk => data += chunk);
+      res.on("data", (chunk) => data += chunk);
       res.on("end", () => resolve(data));
     });
 
     req.on("error", reject);
+    req.write(body);
     req.end();
   });
 }
