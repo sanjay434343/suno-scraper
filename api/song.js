@@ -1,17 +1,18 @@
 const https = require("https");
+const crypto = require("crypto");
 
-function generateDeviceId() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
+function randomId() {
+  return crypto.randomUUID();
 }
 
 function incrementPlayCount(songId) {
   return new Promise((resolve, reject) => {
 
-    const body = JSON.stringify({ spec: {} }); // 🔥 REQUIRED BODY
+    const body = JSON.stringify({ spec: {} });
+
+    const browserToken = JSON.stringify({
+      token: Buffer.from(`{"timestamp":${Date.now()}}`).toString("base64")
+    });
 
     const options = {
       hostname: "studio-api.prod.suno.com",
@@ -20,11 +21,9 @@ function incrementPlayCount(songId) {
       headers: {
         "accept": "*/*",
         "authorization": "Bearer null",
-        "browser-token": JSON.stringify({
-          token: "eyJ0aW1lc3RhbXAiOiR7dGltZXN0YW1wfX0="
-        }),
-        "device-id": generateDeviceId(),
-        "x-user-id": "anonymous", // 🔥 REQUIRED HEADER
+        "browser-token": browserToken,
+        "device-id": randomId(),           // 🔥 NEW DEVICE FOR EACH REQUEST
+        "x-user-id": "anon-" + randomId(), // 🔥 UNIQUE USER FOR EACH REQUEST
         "origin": "https://suno.com",
         "referer": "https://suno.com/",
         "user-agent": "Mozilla/5.0",
@@ -33,9 +32,9 @@ function incrementPlayCount(songId) {
       }
     };
 
-    const req = https.request(options, (res) => {
+    const req = https.request(options, res => {
       let data = "";
-      res.on("data", (chunk) => data += chunk);
+      res.on("data", chunk => data += chunk);
       res.on("end", () => resolve(data));
     });
 
@@ -44,16 +43,3 @@ function incrementPlayCount(songId) {
     req.end();
   });
 }
-
-module.exports = async (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-
-  const songId = req.query.id;
-
-  try {
-    const result = await incrementPlayCount(songId);
-    res.status(200).json({ success: true, result });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
