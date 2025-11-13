@@ -14,18 +14,14 @@ class SunoScraper {
     });
   }
 
-  fetchData(filters = {}) {
+  fetchData(page = 0, pageSize = 20) {
     return new Promise((resolve, reject) => {
-      const browserToken = JSON.stringify({
-        token: `eyJ0aW1lc3RhbXAiOiR7dGltZXN0YW1wfX0=`
-      });
-
       const postData = JSON.stringify({
-        page: filters.page || 0,
-        page_size: filters.pageSize || 20,
-        section_id: filters.sectionId || "discover_playlist",
-        selected_option: filters.language || "Global",
-        secondary_selected_option: filters.timeRange || "Now"
+        page,
+        page_size: pageSize,
+        section_id: "discover_playlist",   // <<--- FORCE SONG SECTION
+        selected_option: "Global",
+        secondary_selected_option: "Now"
       });
 
       const options = {
@@ -35,7 +31,7 @@ class SunoScraper {
         headers: {
           'accept': '*/*',
           'authorization': 'Bearer null',
-          'browser-token': browserToken,
+          'browser-token': JSON.stringify({ token: "eyJ0aW1lc3RhbXAiOiR7dGltZXN0YW1wfX0=" }),
           'content-type': 'application/json',
           'content-length': Buffer.byteLength(postData),
           'device-id': this.generateDeviceId(),
@@ -47,13 +43,12 @@ class SunoScraper {
 
       const req = https.request(options, (res) => {
         let data = '';
-
         res.on('data', chunk => data += chunk);
         res.on('end', () => {
           try {
             resolve(JSON.parse(data));
-          } catch (e) {
-            reject(e);
+          } catch (err) {
+            reject(err);
           }
         });
       });
@@ -64,66 +59,37 @@ class SunoScraper {
     });
   }
 
-  async getSongs(filters = {}) {
-    const data = await this.fetchData(filters);
+  async getSongs(page = 0, pageSize = 20) {
+    const data = await this.fetchData(page, pageSize);
 
-    if (!data.sections || data.sections.length === 0) {
-      return {
-        success: false,
-        message: "No sections found",
-        songs: []
-      };
+    const section = data.sections?.[0];
+    if (!section) {
+      return { success: false, songs: [] };
     }
-
-    const section = data.sections[0];
 
     return {
       success: true,
       section: {
-        title: section.title,
         id: section.id,
-        language: section.selected_option,
-        timeRange: section.secondary_selected_option
+        title: section.title
       },
       total: section.items.length,
-      songs: section.items
+      songs: section.items  // <--- ORIGINAL SUNO SONGS
     };
   }
 }
 
-// Vercel API handler
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  const page = parseInt(req.query.page || "0");
+  const pageSize = parseInt(req.query.pageSize || "20");
 
   try {
     const scraper = new SunoScraper();
-
-    const {
-      page = '0',
-      pageSize = '20',
-      sectionId = 'discover_playlist',
-      language = 'Global',
-      timeRange = 'Now'
-    } = req.query;
-
-    const apiFilters = {
-      page: parseInt(page),
-      pageSize: parseInt(pageSize),
-      sectionId,
-      language,
-      timeRange
-    };
-
-    const result = await scraper.getSongs(apiFilters);
+    const result = await scraper.getSongs(page, pageSize);
     res.status(200).json(result);
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      error: err.message
-    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
   }
 };
