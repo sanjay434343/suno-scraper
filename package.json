@@ -1,0 +1,22 @@
+{
+  "name": "suno-api-scraper",
+  "version": "1.0.0",
+  "description": "Serverless API to scrape and filter Suno trending songs",
+  "main": "api/songs.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "keywords": [
+    "suno",
+    "api",
+    "scraper",
+    "serverless",
+    "vercel"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "vercel": "^33.0.0"
+  }
+}
